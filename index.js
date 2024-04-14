@@ -121,7 +121,23 @@ function generateAuthToken(userId) {
 
 /* api films */
 
-// Route pour récupérer la liste paginée des films
+// Fonction pour récupérer les détails d'un film en fonction de son nom
+const fetchMovieDetails = async (movieName) => {
+  try {
+    const apiKey = '2fc897bfac1ac919a113dfba8287f20d'; // Votre clé API ici
+    const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(movieName)}&include_adult=false&language=en-US&page=1&api_key=${apiKey}`;
+    console.log(url);
+    const response = await fetch(url);
+    const json = await response.json();
+    return json.results[0]; // Récupérer le premier résultat (film) trouvé
+  } catch (error) {
+    console.error('Erreur:', error);
+    return null;
+  }
+};
+
+
+// Route pour récupérer la liste paginée des films avec plus de détails
 app.get('/films', async (req, res) => {
   const page = parseInt(req.query.page) || 1; // Récupère le numéro de page depuis la requête, sinon utilise la première page par défaut
   const limit = parseInt(req.query.limit) || 100; // Récupère le nombre d'éléments par page depuis la requête, sinon utilise 10 éléments par défaut
@@ -132,9 +148,16 @@ app.get('/films', async (req, res) => {
     const skip = (page - 1) * limit; // Calcule le nombre d'éléments à ignorer pour la pagination
 
     const films = await Film.find().skip(skip).limit(limit); // Récupère les films en fonction de la pagination
+    console.log(films);
+    // Récupérer les détails supplémentaires pour chaque film
+    const filmsWithDetails = await Promise.all(films.map(async (film) => {
+      
+      const movieDetails = await fetchMovieDetails(film.titre); // Récupérer les détails du film en utilisant son nom
+      return { ...film.toObject(), details: movieDetails }; // Ajouter les détails supplémentaires au film
+    }));
 
     res.json({
-      data: films,
+      data: filmsWithDetails,
       currentPage: page,
       totalPages: totalPages
     });
@@ -143,6 +166,7 @@ app.get('/films', async (req, res) => {
     res.status(500).json({ error: 'Erreur lors de la récupération des films.' });
   }
 });
+
 
 
 
@@ -200,8 +224,8 @@ app.get('/abonnement/:userId/:filmId', async (req, res) => {
         aVoir: abonnement.aVoir
       });
     } else {
-      // Si l'abonnement n'existe pas, renvoyer un message indiquant que l'abonnement n'est pas trouvé
-      res.status(404).json({ message: 'Abonnement non trouvé pour cet utilisateur.' });
+      // Si l'abonnement n'existe pas, renvoyer null
+      res.status(200).json(null);
     }
   } catch (error) {
     console.error('Erreur lors de la récupération de l\'abonnement :', error);
