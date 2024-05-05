@@ -139,21 +139,26 @@ const fetchMovieDetails = async (movieName) => {
 
 // Route pour récupérer la liste paginée des films avec plus de détails
 app.get('/films', async (req, res) => {
-  const page = parseInt(req.query.page) || 1; // Récupère le numéro de page depuis la requête, sinon utilise la première page par défaut
-  const limit = parseInt(req.query.limit) || 100; // Récupère le nombre d'éléments par page depuis la requête, sinon utilise 10 éléments par défaut
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 100;
+  const nationalité = req.query.nationalité || ''; // Récupère la nationalité depuis la requête, sinon utilise une chaîne vide par défaut
 
   try {
-    const totalCount = await Film.countDocuments(); // Compte le nombre total de films dans la base de données
-    const totalPages = Math.ceil(totalCount / limit); // Calcule le nombre total de pages en fonction du nombre total de films et du nombre d'éléments par page
-    const skip = (page - 1) * limit; // Calcule le nombre d'éléments à ignorer pour la pagination
+    let query = {}; // Définit une requête vide par défaut
+    if (nationalité) {
+      query = { nationalité: nationalité }; // Utilise la nationalité fournie dans la requête pour filtrer les films
+    }
 
-    const films = await Film.find().skip(skip).limit(limit); // Récupère les films en fonction de la pagination
-    console.log(films);
-    // Récupérer les détails supplémentaires pour chaque film
+    const totalCount = await Film.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / limit);
+    const skip = (page - 1) * limit;
+
+    const films = await Film.find(query).skip(skip).limit(limit);
+    
+    // Récupération des détails supplémentaires pour chaque film
     const filmsWithDetails = await Promise.all(films.map(async (film) => {
-      
-      const movieDetails = await fetchMovieDetails(film.titre); // Récupérer les détails du film en utilisant son nom
-      return { ...film.toObject(), details: movieDetails }; // Ajouter les détails supplémentaires au film
+      const movieDetails = await fetchMovieDetails(film.titre);
+      return { ...film.toObject(), details: movieDetails };
     }));
 
     res.json({
@@ -166,6 +171,7 @@ app.get('/films', async (req, res) => {
     res.status(500).json({ error: 'Erreur lors de la récupération des films.' });
   }
 });
+
 
 
 
